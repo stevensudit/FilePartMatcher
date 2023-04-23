@@ -1,11 +1,10 @@
-# corvid20
-<img src="https://upload.wikimedia.org/wikipedia/commons/0/0a/Corvus-brachyrhynchos-001.jpg" height=768 width=768>
+# FilePartMatcher
 
-PyTools: An unoriginal name for some unoriginal code.
+FilePartMatcher: An unoriginal name for some unoriginal code that is nonetheless a useful tool.
 
-https://github.com/stevensudit/Corvid20
+https://github.com/stevensudit/FilePartMatcher
 
-Copyright 2022-2023 Steven Sudit
+Copyright 2023 Steven Sudit
 
 Licensed under the Apache License, Version 2.0(the "License");
 you may not use this file except in compliance with the License.
@@ -22,9 +21,9 @@ limitations under the License.
 
 HISTORY
 
-I'm not actually a Python programmer. When it comes to Python, my skills are aggresively mediocre and somewhat dated. But I was having a little chat with ChatGPT4 about what existing utilities I could use, and it suggested that I write my own. Or, rather, it offered to write one for me, so I let it. This is the origin of the brilliantly-named FilePartMatcher (naming credit goes to the AI). Of course, it didn't do a perfect job on the first try, but then again, I have zero knowledge about tkinter, so I literally couldn't have written this code. In fact, I didn't, but I did supervise my AI employee.
+I'm not actually a Python programmer. When it comes to Python, my skills are aggresively mediocre and somewhat dated. But I was having a little chat with ChatGPT-4 about what existing utilities I could use, and it suggested that I write my own. Or, rather, it offered to write one for me, so I let it. This is the origin of the brilliantly-named FilePartMatcher (naming credit goes to the AI). Of course, it didn't do a perfect job on the first try, but then again, I have zero knowledge about tkinter, so I literally couldn't have written this code. In fact, I didn't, but I did supervise my AI employee.
 
-It had a nasty bug at the start, which is that it immediately brought up the browse window and that somehow interfered with the ability to set focus to the autocomplete textbox. Delaying that popup until the user presses the browse button not only worked around that bug, but added a feature. The remaining additions were likewise crafted with ChatGPT offering advice piecemeal. The end result is... not pretty. But it works. It works surprisingly well and is actually useful.
+It had a nasty bug at the start, which is that it immediately brought up the browse window and that somehow interfered with the ability to set focus to the autocomplete textbox. Delaying that popup until the user presses the browse button not only worked around that bug but added a feature. The remaining additions were likewise crafted with ChatGPT offering advice piecemeal. The end result is... not pretty. But it works. It works surprisingly well and is actually useful.
 
 That's why I hastily created this project to publish it.
 
