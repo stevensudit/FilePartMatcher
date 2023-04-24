@@ -15,14 +15,19 @@ from tkinter import messagebox
 # text. In other words, it changes from "part*" to "*part*".
 #
 # Selecting the part shows all files that contain it. Double-clicking on a
-# file open it. Right-clicking on it opens a menu. The first two options
+# file opens it. Right-clicking on it opens a menu. The first two options
 # are self-explanatory. The last fills the parts list based on the selected
-# file, letting you search laterally.
+# file, letting you search laterally. In lateral search mode, the part list
+# contains only the ones relevant to the file that you had selected and the
+# autocomplete textbox has a leading ">" to indicate that it's scoped to this
+# partial list. Clearing the textbox restores regular mode.
 #
 # To run it conveniently under Windows, create a shortcut to this file. It
 # needs to launch python, passing the full path to this file as a parameter.
 
 directory = ""
+file_dict = {}
+part_list = []
 
 
 def show_help():
@@ -77,11 +82,18 @@ class AutocompleteEntry(tk.Entry):
             for part in file_dict:
                 if current_text in part:
                     temp_list.append(part)
+        elif current_text and current_text[0] == ">":
+            # If we're in lateral search mode, search within partial list.
+            current_text = current_text[1:]
+            for part in part_list:
+                if part.startswith(current_text):
+                    temp_list.append(part)
         else:
             # Otherwise, search `text*`.
             for part in file_dict:
                 if part.startswith(current_text):
                     temp_list.append(part)
+
         temp_list.sort()
         listbox_parts.delete(0, "end")
         for part in temp_list:
@@ -100,6 +112,9 @@ class AutocompleteEntry(tk.Entry):
 
     def clear_text(self):
         self.var.set("")
+
+    def set_text(self, text=""):
+        self.var.set(text)
 
 
 def get_files_with_selected_part(event=None):
@@ -142,10 +157,13 @@ def open_selected_directory(event=None):
 
 
 def open_laterally(event=None):
+    global part_list
+    global exploring
     selected_file = get_selected_file(event)
+    selected_file = os.path.relpath(selected_file, directory)
     if selected_file:
-        return None
-        # Split up file and fill parts list.
+        part_list = get_parts(selected_file)
+        show_part_list(True)
 
 
 def show_tree_menu(event):
@@ -163,18 +181,33 @@ def show_tree_menu(event):
         tree_menu.post(event.x_root, event.y_root)
 
 
-file_dict = {}
+def get_parts(file_path):
+    parts = re.split(r"[^a-zA-Z0-9\u0080-\uFFFF]", file_path)
+    parts = [re.sub(r"\d*$", "", part.lower()) for part in parts]
+    parts = [part for part in parts if len(part) != 0]
+    return parts
+
+
+def show_part_list(start_exploring=False):
+    listbox_parts.delete(0, "end")
+    for part in part_list:
+        listbox_parts.insert(tk.END, part)
+    if start_exploring:
+        entry_autocomplete.set_text(">")
+    else:
+        entry_autocomplete.clear_text()
+    entry_autocomplete.focus()
 
 
 def browse_directory():
     global directory
     directory = filedialog.askdirectory()
+    root.title(f"File Part Matcher: {directory}")
     if directory:
         file_dict.clear()
         for current_root, dirs, files in os.walk(directory):
             for file in files:
                 file_path = os.path.relpath(os.path.join(current_root, file), directory)
-                parts = re.split(r"[^a-zA-Z0-9\u0080-\uFFFF]", file_path)
                 file_info = FileInfo(
                     file_path.lower(),
                     file_path,
@@ -182,21 +215,17 @@ def browse_directory():
                     os.path.splitext(file_path)[1][1:].upper(),
                     get_file_size(os.path.join(directory, file_path)),
                 )
+                parts = get_parts(file_path)
                 for part in parts:
-                    p = re.sub(r"\d*$", "", part.lower())
-                    if len(p) != 0:
-                        if p not in file_dict:
-                            file_dict[p] = set()
-                        file_dict[p].add(file_info)
+                    if part not in file_dict:
+                        file_dict[part] = set()
+                    file_dict[part].add(file_info)
 
         for key in file_dict:
             file_dict[key] = sorted(file_dict[key], key=lambda x: x.key)
 
-        listbox_parts.delete(0, "end")
-        for part in sorted(file_dict.keys()):
-            listbox_parts.insert(tk.END, part)
-        entry_autocomplete.clear_text()
-        entry_autocomplete.focus()
+        part_list = [key for key in sorted(file_dict.keys())]
+        show_part_list()
 
 
 root = tk.Tk()
