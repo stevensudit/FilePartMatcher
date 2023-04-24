@@ -15,26 +15,12 @@ from tkinter import messagebox
 # text. In other words, it changes from "part*" to "*part*".
 #
 # Selecting the part shows all files that contain it. Double-clicking on a
-# file open it. Right-clicking on it opens the directory it's in.
+# file open it. Right-clicking on it opens a menu. The first two options
+# are self-explanatory. The last fills the parts list based on the selected
+# file, letting you search laterally.
 #
 # To run it conveniently under Windows, create a shortcut to this file. It
 # needs to launch python, passing the full path to this file as a parameter.
-#
-# As this was written primarily by ChatGPT-4 and I don't even know tkinter,
-# literally no effort was made to optimize the code or add convenient but non-
-# essential features. It could benefit from such obvious improvements as
-# showing the selected path in the window bar, adding a button to change sort
-# direction, supporting non-Windows systems, and offering sideways navigation
-# from files.
-# 
-# The way that last feature might work is that you select a file, click
-# something to see a list of its parts, and then choose one that is pasted
-# into the autocomplete field for you. Probably, you'd want to have right-
-# click bring up a context menu to choose between opening the directory and
-# doing that sideways navigation. All this is abover my pay grade, though,
-# as this is an unpaid project that I'm hardly qualified to maintain. Maybe
-# I should ask ChatGPT-4 to finish the job it started. At least it's getting
-# paid.
 
 directory = ""
 
@@ -42,7 +28,7 @@ directory = ""
 def show_help():
     messagebox.showinfo(
         "Help",
-        "Enter start of part to autocomplete. Prefix with space for wildcard search. Double-click on file to launch. Right-click to open diretory.",
+        "Enter start of part to autocomplete. Prefix with space for wildcard search. Double-click on file for menu.",
     )
 
 
@@ -121,32 +107,64 @@ def get_files_with_selected_part(event=None):
     if listbox_parts.curselection():
         selected_part = listbox_parts.get(listbox_parts.curselection())
         if tree.get_children():
-            tree.delete(*tree.get_children())          
+            tree.delete(*tree.get_children())
         for file in file_dict[selected_part]:
-            tree.insert("", "end", text=file.key, values=(file.path, file.extension, format(file.size, ',')))
+            tree.insert(
+                "",
+                "end",
+                text=file.key,
+                values=(file.path, file.extension, format(file.size, ",")),
+            )
+
 
 def get_selected_file(event=None):
-    # Get the ID of the clicked item
-    item_id = event.widget.focus()
-
-    # Retrieve the text associated with the clicked item
-    item_text = event.widget.item(item_id, "text")
-    if not item_text:
+    items = tree.selection()
+    if not items:
+        return None
+    item_text = tree.item(items[0])["text"]
+    if len(item_text) == 0:
         return None
     selected_file = os.path.join(directory, item_text)
     return selected_file
+
 
 def open_selected_file(event=None):
     selected_file = get_selected_file(event)
     if selected_file:
         os.startfile(selected_file)
 
+
 def open_selected_directory(event=None):
     selected_file = get_selected_file(event)
-    selected_directory = os.path.dirname(selected_file)
-    os.startfile(selected_directory)
+    if selected_file:
+        selected_directory = os.path.dirname(selected_file)
+        os.startfile(selected_directory)
+
+
+def open_laterally(event=None):
+    selected_file = get_selected_file(event)
+    if selected_file:
+        return None
+        # Split up file and fill parts list.
+
+
+def show_tree_menu(event):
+    # Select the item that was clicked on
+    item = tree.identify_row(event.y)
+
+    # If an item was clicked on, show the context menu
+    if item:
+        path = tree.item(item)["text"]
+        filename = os.path.basename(path)
+        dirname = os.path.dirname(path)
+        tree_menu.entryconfig(0, label=f"Open File: {filename}")
+        tree_menu.entryconfig(1, label=f"Open Directory: {dirname}")
+        tree.selection_set(item)
+        tree_menu.post(event.x_root, event.y_root)
+
 
 file_dict = {}
+
 
 def browse_directory():
     global directory
@@ -157,7 +175,13 @@ def browse_directory():
             for file in files:
                 file_path = os.path.relpath(os.path.join(current_root, file), directory)
                 parts = re.split(r"[^a-zA-Z0-9\u0080-\uFFFF]", file_path)
-                file_info = FileInfo(file_path.lower(), file_path, os.path.split(file_path)[-1], os.path.splitext(file_path)[1][1:].upper(), get_file_size(os.path.join(directory,file_path)))
+                file_info = FileInfo(
+                    file_path.lower(),
+                    file_path,
+                    os.path.split(file_path)[-1],
+                    os.path.splitext(file_path)[1][1:].upper(),
+                    get_file_size(os.path.join(directory, file_path)),
+                )
                 for part in parts:
                     p = re.sub(r"\d*$", "", part.lower())
                     if len(p) != 0:
@@ -173,6 +197,7 @@ def browse_directory():
             listbox_parts.insert(tk.END, part)
         entry_autocomplete.clear_text()
         entry_autocomplete.focus()
+
 
 root = tk.Tk()
 custom_font = ("TkDefaultFont", 16, "normal")
@@ -204,28 +229,35 @@ listbox_parts.config(yscrollcommand=scrollbar_parts.set)
 
 frame_right = tk.Frame(root)
 frame_right.grid(row=1, column=1, sticky="nsew")
-frame_right.configure(bg='#ffff00')
+frame_right.configure(bg="#ffff00")
 
 style = ttk.Style()
 style.theme_use("clam")
 style.configure("Custom.Treeview", font=custom_font, rowheight=30)
 style.configure("Custom.Treeview.Heading", background="gray", foreground="white")
 style.map("Custom.Treeview.Heading", background=[("active", "#005ca3")])
-tree = ttk.Treeview(frame_right, columns=("name", "type", "size"), style="Custom.Treeview")
+tree = ttk.Treeview(
+    frame_right, columns=("name", "type", "size"), style="Custom.Treeview"
+)
+
 
 def set_headings():
     tree.heading("name", text="Name", command=lambda c=0: sortby(tree, c))
     tree.heading("type", text="Type", command=lambda c=1: sortby(tree, c))
     tree.heading("size", text="Size", command=lambda c=2: sortby(tree, c))
 
+
 screen_width = root.winfo_screenwidth()
 tree.heading("#0", text="File Path")
 set_headings()
 tree.column("#0", width=0, stretch=False)
-tree.column("name", minwidth=int(screen_width / 2.5), width=int(screen_width / 2), anchor="w")
+tree.column(
+    "name", minwidth=int(screen_width / 2.5), width=int(screen_width / 2), anchor="w"
+)
 tree.column("type", width=160, anchor="w")
 tree.column("size", width=160, anchor="e")
 tree.grid(row=0, column=1, sticky="nsew")
+
 
 def sortby(tree, column_number):
     column_id = tree.column(column_number, option="id")
@@ -241,17 +273,27 @@ def sortby(tree, column_number):
         descending = True
 
     set_headings()
-    tree.heading(column_id, text=column_text + ("▼" if descending else "▲"), command=lambda c=column_number: sortby(tree, c))
+    tree.heading(
+        column_id,
+        text=column_text + ("▼" if descending else "▲"),
+        command=lambda c=column_number: sortby(tree, c),
+    )
 
     if column_text == "Size":
-        data = [(float(tree.set(child, column_number).replace(',', '')), child) for child in tree.get_children('')]
+        data = [
+            (float(tree.set(child, column_number).replace(",", "")), child)
+            for child in tree.get_children("")
+        ]
     else:
-        data = [(tree.set(child, column_number), child) for child in tree.get_children('')]
+        data = [
+            (tree.set(child, column_number), child) for child in tree.get_children("")
+        ]
 
     # Sort the items in place
     data.sort(reverse=descending)
     for index, item in enumerate(data):
-        tree.move(item[1], '', index)
+        tree.move(item[1], "", index)
+
 
 # Create the scrollbar widget and link it to the treeview widget
 vsb = ttk.Scrollbar(frame_right, orient="vertical", command=tree.yview)
@@ -263,8 +305,16 @@ frame_right.rowconfigure(0, weight=1)
 frame_right.columnconfigure(1, weight=1)
 
 listbox_parts.bind("<<ListboxSelect>>", get_files_with_selected_part)
-tree.bind("<Double-Button-1>", lambda event: open_selected_file(event) if tree.identify_row(event.y) else None)
-tree.bind("<Button-3>", lambda event: open_selected_directory(event) if tree.identify_row(event.y) else None)
+tree.bind(
+    "<Double-Button-1>",
+    lambda event: open_selected_file(event) if tree.identify_row(event.y) else None,
+)
+
+tree_menu = tk.Menu(root, tearoff=0)
+tree_menu.add_command(label="Open File", command=open_selected_file)
+tree_menu.add_command(label="Open Directory", command=open_selected_directory)
+tree_menu.add_command(label="Explore Laterally", command=open_laterally)
+tree.bind("<Button-3>", show_tree_menu)
 
 root.columnconfigure(0, weight=0)
 root.columnconfigure(1, weight=1)
