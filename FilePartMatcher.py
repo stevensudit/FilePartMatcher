@@ -127,17 +127,13 @@ def browse_directory():
     directory = filedialog.askdirectory()
     if directory:
         file_dict.clear()
-
-        pattern = r"[^\w\u0080-\uFFFF]"
-
         for current_root, dirs, files in os.walk(directory):
             for file in files:
                 file_path = os.path.relpath(os.path.join(current_root, file), directory)
-                parts = re.split(r"[.\-\,\_\\\/\ ]", file_path)
+                parts = re.split(r"[^a-zA-Z0-9\u0080-\uFFFF]", file_path)
 
                 for part in parts:
-                    p = re.sub(pattern, "", part.lower())
-                    p = re.sub(r"\d*$", "", p)
+                    p = re.sub(r"\d*$", "", part.lower())
                     if len(p) != 0:
                         if p not in file_dict:
                             file_dict[p] = set()
