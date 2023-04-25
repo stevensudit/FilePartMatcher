@@ -25,11 +25,17 @@ from tkinter import messagebox
 # To run it conveniently under Windows, create a shortcut to this file. It
 # needs to launch python, passing the full path to this file as a parameter.
 
+# Top-level directory being searched.
 directory = ""
+
+# Maps parts to the FileInfo's that contain them.
 file_dict = {}
+
+# Holds currently-displayed parts list.
 part_list = []
 
 
+# Shows help messagebox.
 def show_help():
     messagebox.showinfo(
         "Help",
@@ -37,6 +43,7 @@ def show_help():
     )
 
 
+# File info class to hold the data that shows up in the tree. Needed so that it could be sorted
 class FileInfo:
     def __init__(self, key, path, name, extension, size):
         self.key = key
@@ -52,6 +59,7 @@ class FileInfo:
         return (self.key) == (other.key)
 
 
+# Gets size of specified file, safely.
 def get_file_size(filepath):
     try:
         size = os.path.getsize(filepath)
@@ -60,6 +68,7 @@ def get_file_size(filepath):
         return 0
 
 
+# Control for auto-complete.
 class AutocompleteEntry(tk.Entry):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -67,6 +76,7 @@ class AutocompleteEntry(tk.Entry):
         self.configure(textvariable=self.var)
         self.var.trace_add("write", self.on_change)
 
+    # Updates part list display based on current text.
     def on_change(self, *args):
         current_text = self.var.get().lower()
         temp_list = []
@@ -88,6 +98,7 @@ class AutocompleteEntry(tk.Entry):
                 if part.startswith(current_text):
                     temp_list.append(part)
 
+        # Display list and cascade changes.
         temp_list.sort()
         listbox_parts.delete(0, "end")
         for part in temp_list:
@@ -101,21 +112,27 @@ class AutocompleteEntry(tk.Entry):
         self.var.set(text)
 
 
-def get_files_with_selected_part(event=None):
+# Updates tree with files that contain selected part.
+def show_files_with_selected_part(event=None):
+    if not listbox_parts.curselection():
+        return
+
+    # Reset headings to remove sorting indicators.
     set_headings()
-    if listbox_parts.curselection():
-        selected_part = listbox_parts.get(listbox_parts.curselection())
-        if tree.get_children():
-            tree.delete(*tree.get_children())
-        for file in file_dict[selected_part]:
-            tree.insert(
-                "",
-                "end",
-                text=file.key,
-                values=(file.path, file.extension, format(file.size, ",")),
-            )
+
+    selected_part = listbox_parts.get(listbox_parts.curselection())
+    if tree.get_children():
+        tree.delete(*tree.get_children())
+    for file in file_dict[selected_part]:
+        tree.insert(
+            "",
+            "end",
+            text=file.key,
+            values=(file.path, file.extension, format(file.size, ",")),
+        )
 
 
+# Helper to extract selected file from tree.
 def get_selected_file(event=None):
     items = tree.selection()
     if not items:
@@ -127,12 +144,14 @@ def get_selected_file(event=None):
     return selected_file
 
 
+# Opens selected file.
 def open_selected_file(event=None):
     selected_file = get_selected_file(event)
     if selected_file:
         os.startfile(selected_file)
 
 
+# Opens selected file's directory.
 def open_selected_directory(event=None):
     selected_file = get_selected_file(event)
     if selected_file:
@@ -140,35 +159,44 @@ def open_selected_directory(event=None):
         os.startfile(selected_directory)
 
 
+# Opens lateral search on the parts from the selected file.
 def open_laterally(event=None):
     global part_list
     selected_file = get_selected_file(event)
     selected_file = os.path.relpath(selected_file, directory)
     if selected_file:
-        part_list = get_parts(selected_file)
+        part_list = list(set(get_parts(selected_file)))
         show_part_list(True)
 
 
-def show_tree_menu(event):
+# Pop up context menu on right-click in tree. Doubles as a properties box to
+# see attributes that aren't visible without resizing columns.
+def show_context_menu(event):
     item = tree.identify_row(event.y)
-    if item:
-        path = tree.item(item)["text"]
-        filename = os.path.basename(path)
-        dirname = os.path.dirname(path)
-        tree_menu.entryconfig(0, label=f"Open File: {filename}")
-        tree_menu.entryconfig(1, label=f"Open Directory: {dirname}")
-        tree.selection_set(item)
-        tree_menu.post(event.x_root, event.y_root)
+    if not item:
+        return
+    path = tree.item(item)["text"]
+    filename = os.path.basename(path)
+    dirname = os.path.dirname(path)
+    tree_menu.entryconfig(0, label=f"Open File: {filename}")
+    tree_menu.entryconfig(1, label=f"Open Directory: {dirname}")
+    tree.selection_set(item)
+    tree_menu.post(event.x_root, event.y_root)
 
 
+# Breaks file path into parts, normalizing them for searching.
+# Dedupes but does not sort.
 def get_parts(file_path):
+    # Split on anything that's not alphanumeric, but leave high Unicode alone.
     parts = re.split(r"[^a-zA-Z0-9\u0080-\uFFFF]", file_path)
+    # Remove trailing numbers.
     parts = [re.sub(r"\d*$", "", part.lower()) for part in parts]
+    # Remove empty parts.
     parts = [part for part in parts if len(part) != 0]
-    parts = list(set(parts))
     return parts
 
 
+# Fill part list with sub-list. Pass True to start a lateral search.
 def show_part_list(start_exploring=False):
     listbox_parts.delete(0, "end")
     for part in part_list:
@@ -180,38 +208,41 @@ def show_part_list(start_exploring=False):
     entry_autocomplete.focus()
 
 
+# Pop up a directory dialog and then find all files recursively.
 def browse_directory():
     global directory
     global part_list
     directory = filedialog.askdirectory()
     root.title(f"File Part Matcher: {directory}")
-    if directory:
-        file_dict.clear()
-        for current_root, dirs, files in os.walk(directory):
-            for file in files:
-                file_path = os.path.normpath(
-                    os.path.relpath(os.path.join(current_root, file), directory)
-                )
-                file_info = FileInfo(
-                    file_path.lower(),
-                    file_path,
-                    os.path.split(file_path)[-1],
-                    os.path.splitext(file_path)[1][1:].upper(),
-                    get_file_size(os.path.join(directory, file_path)),
-                )
-                parts = get_parts(file_path)
-                for part in parts:
-                    if part not in file_dict:
-                        file_dict[part] = set()
-                    file_dict[part].add(file_info)
+    if not directory:
+        return
+    file_dict.clear()
+    for current_root, dirs, files in os.walk(directory):
+        for file in files:
+            file_path = os.path.normpath(
+                os.path.relpath(os.path.join(current_root, file), directory)
+            )
+            file_info = FileInfo(
+                file_path.lower(),
+                file_path,
+                os.path.split(file_path)[-1],
+                os.path.splitext(file_path)[1][1:].upper(),
+                get_file_size(os.path.join(directory, file_path)),
+            )
+            parts = get_parts(file_path)
+            for part in parts:
+                if part not in file_dict:
+                    file_dict[part] = set()
+                file_dict[part].add(file_info)
 
-        for key in file_dict:
-            file_dict[key] = sorted(file_dict[key], key=lambda x: x.key)
+    for key in file_dict:
+        file_dict[key] = sorted(file_dict[key], key=lambda x: x.key)
 
-        part_list = [key for key in sorted(file_dict.keys())]
-        show_part_list()
+    part_list = [key for key in sorted(file_dict.keys())]
+    show_part_list()
 
 
+# Create the window.
 root = tk.Tk()
 custom_font = ("TkDefaultFont", 16, "normal")
 root.title("File Part Matcher")
@@ -219,9 +250,10 @@ root.state("zoomed")
 root.columnconfigure(0, weight=1)
 root.columnconfigure(1, weight=1)
 root.rowconfigure(1, weight=1)
-
 root.bind("<F1>", lambda event: show_help())
 
+# Create the left frame, which holds the autocomplete entry and the file part
+# listbox, as well as the browse button.
 frame_left = tk.Frame(root)
 frame_left.grid(row=1, column=0, sticky="nsew")
 frame_left.columnconfigure(0, weight=1)
@@ -240,6 +272,7 @@ scrollbar_parts = tk.Scrollbar(frame_left, command=listbox_parts.yview)
 scrollbar_parts.pack(side=tk.LEFT, fill=tk.Y)
 listbox_parts.config(yscrollcommand=scrollbar_parts.set)
 
+# Create the right frame, which holds the tree control with file info.
 frame_right = tk.Frame(root)
 frame_right.grid(row=1, column=1, sticky="nsew")
 frame_right.configure(bg="#ffff00")
@@ -254,12 +287,14 @@ tree = ttk.Treeview(
 )
 
 
+# Set up the sortable columns, removing sort indicators.
 def set_headings():
     tree.heading("name", text="Name", command=lambda c=0: sortby(tree, c))
     tree.heading("type", text="Type", command=lambda c=1: sortby(tree, c))
     tree.heading("size", text="Size", command=lambda c=2: sortby(tree, c))
 
 
+# Set tree headings and column widths.
 screen_width = root.winfo_screenwidth()
 tree.heading("#0", text="File Path")
 set_headings()
@@ -272,6 +307,7 @@ tree.column("size", width=160, anchor="e")
 tree.grid(row=0, column=1, sticky="nsew")
 
 
+# Sort when tree heading is clicked.
 def sortby(tree, column_number):
     column_id = tree.column(column_number, option="id")
     column_text = tree.heading(column_id, option="text")
@@ -292,6 +328,7 @@ def sortby(tree, column_number):
         command=lambda c=column_number: sortby(tree, c),
     )
 
+    # Special-case the size column so that it sorts numerically.
     if column_text == "Size":
         data = [
             (float(tree.set(child, column_number).replace(",", "")), child)
@@ -317,12 +354,14 @@ vsb.grid(row=0, column=2, sticky="ns")
 frame_right.rowconfigure(0, weight=1)
 frame_right.columnconfigure(1, weight=1)
 
-listbox_parts.bind("<<ListboxSelect>>", get_files_with_selected_part)
+# Bind double-click to tree rows.
+listbox_parts.bind("<<ListboxSelect>>", show_files_with_selected_part)
 tree.bind(
     "<Double-Button-1>",
     lambda event: open_selected_file(event) if tree.identify_row(event.y) else None,
 )
 
+# Create context menu for tree and bind it to right-click.
 tree_menu = tk.Menu(root, tearoff=0)
 tree_menu.add_command(label="Open File", command=open_selected_file, font=custom_font)
 tree_menu.add_command(
@@ -331,11 +370,8 @@ tree_menu.add_command(
 tree_menu.add_command(
     label="Explore Laterally", command=open_laterally, font=custom_font
 )
-tree.bind("<Button-3>", show_tree_menu)
+tree.bind("<Button-3>", show_context_menu)
 
-root.columnconfigure(0, weight=0)
-root.columnconfigure(1, weight=1)
-
+# Go.
 browse_button.focus()
-
 root.mainloop()
