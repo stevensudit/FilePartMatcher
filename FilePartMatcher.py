@@ -33,7 +33,7 @@ part_list = []
 def show_help():
     messagebox.showinfo(
         "Help",
-        "Enter start of part to autocomplete. Prefix with space for wildcard search. Double-click on file for menu.",
+        "Enter start of part to autocomplete. Prefix with space for wildcard search. Double-click on file for launch. Right-click for menu.",
     )
 
 
@@ -53,15 +53,10 @@ class FileInfo:
 
 
 def get_file_size(filepath):
-    # Normalize filepath to the current operating system's path separator
-    filepath = os.path.normpath(filepath)
-
     try:
-        # Get the file size using os.path.getsize()
         size = os.path.getsize(filepath)
         return size
     except:
-        # If an error occurs, return 0
         return 0
 
 
@@ -71,7 +66,6 @@ class AutocompleteEntry(tk.Entry):
         self.var = tk.StringVar()
         self.configure(textvariable=self.var)
         self.var.trace_add("write", self.on_change)
-        self.bind("<Tab>", self.autocomplete)
 
     def on_change(self, *args):
         current_text = self.var.get().lower()
@@ -102,16 +96,6 @@ class AutocompleteEntry(tk.Entry):
             listbox_parts.selection_set(0)
             listbox_parts.see(0)
             listbox_parts.event_generate("<<ListboxSelect>>")
-
-    def autocomplete(self, event=None):
-        if listbox_parts.size() > 0:
-            listbox_parts.selection_set(0)
-            listbox_parts.see(0)
-            listbox_parts.event_generate("<<ListboxSelect>>")
-        return "break"
-
-    def clear_text(self):
-        self.var.set("")
 
     def set_text(self, text=""):
         self.var.set(text)
@@ -158,7 +142,6 @@ def open_selected_directory(event=None):
 
 def open_laterally(event=None):
     global part_list
-    global exploring
     selected_file = get_selected_file(event)
     selected_file = os.path.relpath(selected_file, directory)
     if selected_file:
@@ -167,10 +150,7 @@ def open_laterally(event=None):
 
 
 def show_tree_menu(event):
-    # Select the item that was clicked on
     item = tree.identify_row(event.y)
-
-    # If an item was clicked on, show the context menu
     if item:
         path = tree.item(item)["text"]
         filename = os.path.basename(path)
@@ -185,6 +165,7 @@ def get_parts(file_path):
     parts = re.split(r"[^a-zA-Z0-9\u0080-\uFFFF]", file_path)
     parts = [re.sub(r"\d*$", "", part.lower()) for part in parts]
     parts = [part for part in parts if len(part) != 0]
+    parts = list(set(parts))
     return parts
 
 
@@ -195,19 +176,22 @@ def show_part_list(start_exploring=False):
     if start_exploring:
         entry_autocomplete.set_text(">")
     else:
-        entry_autocomplete.clear_text()
+        entry_autocomplete.set_text()
     entry_autocomplete.focus()
 
 
 def browse_directory():
     global directory
+    global part_list
     directory = filedialog.askdirectory()
     root.title(f"File Part Matcher: {directory}")
     if directory:
         file_dict.clear()
         for current_root, dirs, files in os.walk(directory):
             for file in files:
-                file_path = os.path.relpath(os.path.join(current_root, file), directory)
+                file_path = os.path.normpath(
+                    os.path.relpath(os.path.join(current_root, file), directory)
+                )
                 file_info = FileInfo(
                     file_path.lower(),
                     file_path,
@@ -340,9 +324,13 @@ tree.bind(
 )
 
 tree_menu = tk.Menu(root, tearoff=0)
-tree_menu.add_command(label="Open File", command=open_selected_file)
-tree_menu.add_command(label="Open Directory", command=open_selected_directory)
-tree_menu.add_command(label="Explore Laterally", command=open_laterally)
+tree_menu.add_command(label="Open File", command=open_selected_file, font=custom_font)
+tree_menu.add_command(
+    label="Open Directory", command=open_selected_directory, font=custom_font
+)
+tree_menu.add_command(
+    label="Explore Laterally", command=open_laterally, font=custom_font
+)
 tree.bind("<Button-3>", show_tree_menu)
 
 root.columnconfigure(0, weight=0)
