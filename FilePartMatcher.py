@@ -21,7 +21,7 @@ from collections import namedtuple
 # file opens it. Right-clicking on it opens a menu. The first two options
 # are self-explanatory. The next fills the parts list based on the selected
 # file, letting you search laterally.
-# 
+#
 # In lateral search mode, the part list contains only the ones relevant to the
 # file that you had selected and the autocomplete textbox has a leading ">" to
 # indicate that it's scoped to this  partial list. Clearing the textbox
@@ -121,6 +121,9 @@ def show_files_with_selected_part(event=None):
     set_headings()
 
     selected_part = listbox_parts.get(listbox_parts.curselection())
+    # Can be missing after we move/delete a file.
+    if not selected_part in file_dict:
+        return
     for file in file_dict[selected_part]:
         tree.insert(
             "",
@@ -170,23 +173,45 @@ def open_laterally(event=None):
 # Move selected file to destination directory, if one is selected. Otherwise, browse for one.
 def move_to_target(event=None):
     if len(destination_directory) == 0:
+        messagebox.showinfo("Help", "Right-click on Browse button to change target")
         browse_target()
         return
     items = tree.selection()
     if not items:
         return None
-    path = os.path.normpath(os.path.join(directory, tree.item(items[0])["text"]))
-    filename = os.path.basename(path)
+    path = tree.item(items[0])["text"]
+    fullpath = os.path.normpath(os.path.join(directory, path))
+    filename = os.path.basename(fullpath)
     new_path = os.path.join(destination_directory, filename)
     if os.path.exists(new_path):
         messagebox.showerror("Error", f"File already exists: {new_path}")
         return
-    if messagebox.askyesno("Confirm", f"Move {path} to {new_path}?"):
-        os.rename(path, new_path)
-        tree.delete(items[0])
-        parts = get_parts(path)
-        for part in parts:
-            file_dict[part].remove(path)
+    if messagebox.askyesno("Confirm", f"Move {fullpath} to {new_path}?"):
+        os.rename(fullpath, new_path)
+        remove_missing_file(items, path)
+
+
+# Delete selected file.
+def delete_file(event=None):
+    items = tree.selection()
+    if not items:
+        return None
+    path = tree.item(items[0])["text"]
+    fullpath = os.path.normpath(os.path.join(directory, path))
+    if messagebox.askyesno("Confirm", f"Delete {fullpath} permanently?"):
+        os.remove(path)
+        remove_missing_file(items, path)
+
+
+# Remove file entry from tree and dictionary, after file was moved or deleted.
+def remove_missing_file(items, path):
+    tree.delete(items[0])
+    parts = get_parts(path)
+    for part in parts:
+        list = file_dict[part]
+        list.remove(next((x for x in list if x.key == path), None))
+        if len(list) == 0:
+            del file_dict[part]
 
 
 # Pop up context menu on right-click in tree. Doubles as a properties box to
@@ -275,7 +300,9 @@ def find_files(directory):
 # Pop up a directory dialog and then find all files recursively.
 def browse_directory():
     global directory
-    new_directory = os.path.normpath(filedialog.askdirectory(title="Select directory to analyze"))
+    new_directory = os.path.normpath(
+        filedialog.askdirectory(title="Select directory to analyze")
+    )
     if not new_directory or new_directory == ".":
         return
 
@@ -290,7 +317,9 @@ def browse_directory():
 # Choose target directory.
 def browse_target():
     global destination_directory
-    destination_directory = os.path.normpath(filedialog.askdirectory(title="Select directory to move files to"))
+    destination_directory = os.path.normpath(
+        filedialog.askdirectory(title="Select directory to move files to")
+    )
     if not destination_directory or destination_directory == ".":
         destination_directory = ""
 
@@ -492,6 +521,7 @@ tree_menu.add_command(
     label="Explore Laterally", command=open_laterally, font=custom_font
 )
 tree_menu.add_command(label="Browse target", command=move_to_target, font=custom_font)
+tree_menu.add_command(label="Delete file", command=delete_file, font=custom_font)
 tree.bind("<Button-3>", show_context_menu)
 
 # Go.
