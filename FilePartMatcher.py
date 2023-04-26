@@ -170,42 +170,59 @@ def open_laterally(event=None):
         show_part_list(True)
 
 
+# Get information about selected file.
+def get_selected_info():
+    items = tree.selection()
+    if not items:
+        return None, None, None
+    item = items[0]
+    path = tree.item(item)["text"]
+    fullpath = os.path.normpath(os.path.join(directory, path))
+    return fullpath, item, path
+
+
 # Move selected file to destination directory, if one is selected. Otherwise, browse for one.
 def move_to_target(event=None):
     if len(destination_directory) == 0:
         messagebox.showinfo("Help", "Right-click on Browse button to change target")
         browse_target()
         return
-    items = tree.selection()
-    if not items:
-        return None
-    path = tree.item(items[0])["text"]
-    fullpath = os.path.normpath(os.path.join(directory, path))
-    filename = os.path.basename(fullpath)
-    new_path = os.path.join(destination_directory, filename)
+    fullpath, item, path = get_selected_info()
+    if not fullpath:
+        return
+    new_path = os.path.join(destination_directory, os.path.basename(fullpath))
     if os.path.exists(new_path):
         messagebox.showerror("Error", f"File already exists: {new_path}")
         return
-    if messagebox.askyesno("Confirm", f"Move {fullpath} to {new_path}?"):
-        os.rename(fullpath, new_path)
-        remove_missing_file(items, path)
+    message = f"Move {fullpath} to {new_path}?"
+    perform_file_operation(
+        fullpath, item, path, lambda: os.rename(fullpath, new_path), message
+    )
 
 
 # Delete selected file.
 def delete_file(event=None):
-    items = tree.selection()
-    if not items:
-        return None
-    path = tree.item(items[0])["text"]
-    fullpath = os.path.normpath(os.path.join(directory, path))
-    if messagebox.askyesno("Confirm", f"Delete {fullpath} permanently?"):
-        os.remove(fullpath)
-        remove_missing_file(items, path)
+    fullpath, item, path = get_selected_info()
+    if not fullpath:
+        return
+    message = f"Delete {fullpath} permanently?"
+    perform_file_operation(fullpath, item, path, lambda: os.remove(fullpath), message)
+
+
+# Perform file operation lambda after prompting for permission.
+def perform_file_operation(fullpath, item=None, path=None, file_op=None, message=None):
+    if messagebox.askyesno("Confirm", message):
+        try:
+            file_op()
+        except OSError as e:
+            messagebox.showerror("Error", f"Error: {e.strerror}")
+            return
+        remove_missing_file(item, path)
 
 
 # Remove file entry from tree and dictionary, after file was moved or deleted.
-def remove_missing_file(items, path):
-    tree.delete(items[0])
+def remove_missing_file(item, path):
+    tree.delete(item)
     parts = get_parts(path)
     for part in parts:
         list = file_dict[part]
