@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
@@ -114,7 +115,8 @@ def show_files_with_selected_part(event=None):
     if not listbox_parts.curselection():
         return
 
-    # Reset headings to remove sorting indicators.
+    # Reset headings to remove sorting indicators and timer.
+    update_title()
     set_headings()
 
     selected_part = listbox_parts.get(listbox_parts.curselection())
@@ -246,6 +248,7 @@ def browse_directory():
 
     root.config(cursor="wait")
     root.update()
+    start_time = time.time()
 
     file_dict.clear()
     update_title()
@@ -274,7 +277,8 @@ def browse_directory():
     show_part_list()
     root.config(cursor="")
     root.update()
-    update_title()
+    elapsed_time = time.time() - start_time
+    update_title(0, f", done in {elapsed_time:.2f} seconds")
 
 
 # Create the window.
