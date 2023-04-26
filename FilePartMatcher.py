@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
 from tkinter import messagebox
-
+from collections import namedtuple
 
 # This is a simple GUI that allows you to browse a directory and then search
 # for files by part of the name. Parts are delimited by non-alphanumeric
@@ -36,8 +36,11 @@ file_dict = {}
 # Holds currently-displayed parts list.
 part_list = []
 
-file_counter = 0
+# Counter used for title display
+title_counter = 0
 
+# Named tuple to hold file info for each row in the tree.
+FileInfo = namedtuple("FileInfo", ["key", "path", "name", "extension", "size"])
 
 # Shows help messagebox.
 def show_help():
@@ -45,26 +48,6 @@ def show_help():
         "Help",
         "Enter start of part to autocomplete. Prefix with space for wildcard search. Double-click on file for launch. Right-click for menu.",
     )
-
-
-# File info class to hold the data that shows up in the tree. Needed so that it could be sorted
-class FileInfo:
-    def __init__(self, key, path, name, extension, size):
-        self.key = key
-        self.path = path
-        self.name = name
-        self.extension = extension
-        self.size = size
-
-    def __hash__(self):
-        return hash((self.key))
-
-    def __eq__(self, other):
-        return (self.key) == (other.key)
-
-    def __lt__(self, other):
-        return (self.key) < (other.key)
-
 
 # Control for auto-complete.
 class AutocompleteEntry(tk.Entry):
@@ -210,20 +193,21 @@ def show_part_list(start_exploring=False):
     entry_autocomplete.focus()
 
 
+# Update title, potentially resetting or incrementing counter.
 def update_title(increment=0, msg=""):
-    global file_counter
+    global title_counter
     if not increment:
-        file_counter = 0
+        title_counter = 0
     else:
-        file_counter += increment
+        title_counter += increment
 
-    if file_counter == 0:
+    if title_counter == 0:
         root.title(f"File Part Matcher: {directory} {msg}")
         return
 
-    if file_counter % 100 == 0:
-        root.title(f"File Part Matcher: {directory}, {file_counter} {msg}")
-        if file_counter % 1000 == 0:
+    if title_counter % 100 == 0:
+        root.title(f"File Part Matcher: {directory}, {title_counter} {msg}")
+        if title_counter % 1000 == 0:
             root.update()
 
 
