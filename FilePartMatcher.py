@@ -183,14 +183,17 @@ def show_context_menu(event):
     tree_menu.post(event.x_root, event.y_root)
 
 
+non_alphanumeric_regex = re.compile(r"[^a-zA-Z0-9\u0080-\uFFFF]")
+trailing_numbers_regex = re.compile(r"\d*$")
+
+
 # Breaks file path into parts, normalizing them for searching.
 # Dedupes but does not sort.
 def get_parts(file_path):
     # Split on anything that's not alphanumeric, but leave high Unicode alone.
-    parts = re.split(r"[^a-zA-Z0-9\u0080-\uFFFF]", file_path)
-    # Remove trailing numbers.
-    parts = [re.sub(r"\d*$", "", part.lower()) for part in parts]
-    # Remove empty parts.
+    parts = re.split(non_alphanumeric_regex, file_path)
+    # Remove trailing numbers and (subsequent) empty parts.
+    parts = [trailing_numbers_regex.sub("", part.lower()) for part in parts]
     parts = [part for part in parts if len(part) != 0]
     return parts
 
@@ -220,12 +223,13 @@ def update_title(increment=0, msg=""):
 
     if file_counter % 100 == 0:
         root.title(f"File Part Matcher: {directory}, {file_counter} {msg}")
+        if file_counter % 1000 == 0:
+            root.update()
 
 
 # Find files and sizes recursively.
 def find_files(directory):
     file_list = []
-    directory = os.path.normpath(directory)
     for entry in os.scandir(directory):
         if entry.is_symlink():
             continue
@@ -240,16 +244,22 @@ def find_files(directory):
 # Pop up a directory dialog and then find all files recursively.
 def browse_directory():
     global directory
-    global part_list
-    directory = filedialog.askdirectory()
+    directory = os.path.normpath(filedialog.askdirectory())
     update_title()
     if not directory:
         return
 
     root.config(cursor="wait")
-    root.update()
-    start_time = time.time()
+    root.update_idletasks()
+    root.after(100, process_files)
 
+
+# Process files into parts.
+def process_files():
+    global directory
+    global part_list
+
+    start_time = time.time()
     file_dict.clear()
     update_title()
     files = find_files(directory)
@@ -262,7 +272,7 @@ def browse_directory():
             os.path.splitext(rel_path)[1][1:].upper(),
             file_size,
         )
-        update_title(-1, "files left to process")
+        update_title(-1, "files to extract parts from")
         parts = get_parts(rel_path)
         for part in parts:
             if part not in file_dict:
@@ -270,15 +280,27 @@ def browse_directory():
             file_dict[part].add(file_info)
 
     update_title(0, ", sorting...")
+    update_title(len(file_dict), " parts to sort")
     for key in file_dict:
-        file_dict[key] = sorted(list(file_dict[key]), key=lambda x: x.key)
+        sorted_list = sorted(list(file_dict[key]), key=lambda x: x.key)
+        file_dict[key] = sorted_list
+        update_title(-1, " part lists to sort")
 
     part_list = [key for key in sorted(file_dict.keys())]
+
+    update_title(0, f", displaying")
     show_part_list()
     root.config(cursor="")
-    root.update()
+    root.update_idletasks()
     elapsed_time = time.time() - start_time
-    update_title(0, f", done in {elapsed_time:.2f} seconds")
+    formatted_part_count = format(len(part_list), ",")
+    formatted_file_count = format(len(files), ",")
+
+    update_title(
+        0,
+        f", found {formatted_part_count} parts among "
+        f"{formatted_file_count} files in {elapsed_time:.2f} seconds",
+    )
 
 
 # Create the window.
