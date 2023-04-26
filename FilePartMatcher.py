@@ -258,6 +258,7 @@ def browse_directory():
 def process_files():
     global directory
     global part_list
+    global file_dict
 
     start_time = time.time()
     file_dict.clear()
@@ -281,11 +282,18 @@ def process_files():
 
     update_title(0, ", sorting...")
     update_title(len(file_dict), " parts to sort")
-    for key in file_dict:
-        sorted_list = sorted(list(file_dict[key]), key=lambda x: x.key)
-        file_dict[key] = sorted_list
-        update_title(-1, " part lists to sort")
 
+    def sort_file_list(file_list):
+        file_list.sort(key=lambda x: x.key)
+        update_title(-1, " parts to sort")
+        return file_list
+
+    # Sort file lists for each part.
+    update_title(len(file_dict), " parts to sort")
+    file_dict = {key: sort_file_list(list(file_dict[key])) for key in file_dict}
+
+    # Sort parts.
+    update_title(0, ", sorting list of {len(file_dict)} parts")
     part_list = [key for key in sorted(file_dict.keys())]
 
     update_title(0, f", displaying")
