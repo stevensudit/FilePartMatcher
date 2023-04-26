@@ -199,7 +199,7 @@ def delete_file(event=None):
     path = tree.item(items[0])["text"]
     fullpath = os.path.normpath(os.path.join(directory, path))
     if messagebox.askyesno("Confirm", f"Delete {fullpath} permanently?"):
-        os.remove(path)
+        os.remove(fullpath)
         remove_missing_file(items, path)
 
 
