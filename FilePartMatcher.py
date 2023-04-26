@@ -30,6 +30,9 @@ from collections import namedtuple
 # Top-level directory being searched.
 directory = ""
 
+# Directory to move files to.
+destination_directory = ""
+
 # Maps parts to the FileInfo's that contain them.
 file_dict = {}
 
@@ -153,9 +156,32 @@ def open_laterally(event=None):
         show_part_list(True)
 
 
+# Move selected file to destination directory, if one is selected. Otherwise, browse for one.
+def move_to_target(event=None):
+    if len(destination_directory) == 0:
+        browse_target()
+        return
+    items = tree.selection()
+    if not items:
+        return None
+    path = os.path.normpath(os.path.join(directory, tree.item(items[0])["text"]))
+    filename = os.path.basename(path)
+    new_path = os.path.join(destination_directory, filename)
+    if os.path.exists(new_path):
+        messagebox.showerror("Error", f"File already exists: {new_path}")
+        return
+    if messagebox.askyesno("Confirm", f"Move {path} to {new_path}?"):
+        os.rename(path, new_path)
+        tree.delete(items[0])    
+        parts = get_parts(path)
+        for part in parts:
+            file_dict[part].remove(path)
+
+
 # Pop up context menu on right-click in tree. Doubles as a properties box to
 # see attributes that aren't visible without resizing columns.
 def show_context_menu(event):
+    global destination_directory
     item = tree.identify_row(event.y)
     if not item:
         return
@@ -164,6 +190,10 @@ def show_context_menu(event):
     dirname = os.path.dirname(path)
     tree_menu.entryconfig(0, label=f"Open File: {filename}")
     tree_menu.entryconfig(1, label=f"Open Directory: {dirname}")
+    if len(destination_directory) > 0:
+        tree_menu.entryconfig(3, label=f"Move File to: {destination_directory}")
+    else:
+        tree_menu.entryconfig(3, label=f"Browse target")
     tree.selection_set(item)
     tree_menu.post(event.x_root, event.y_root)
 
@@ -230,14 +260,24 @@ def find_files(directory):
 # Pop up a directory dialog and then find all files recursively.
 def browse_directory():
     global directory
-    directory = os.path.normpath(filedialog.askdirectory())
-    update_title()
-    if not directory:
+    new_directory = os.path.normpath(filedialog.askdirectory())
+    if not new_directory or new_directory == ".":
         return
+
+    directory = new_directory
+    update_title()
 
     root.config(cursor="wait")
     root.update_idletasks()
     root.after(100, process_files)
+
+
+# Choose target directory.
+def browse_target():
+    global destination_directory
+    destination_directory = os.path.normpath(filedialog.askdirectory())
+    if not destination_directory or destination_directory == ".":
+        destination_directory = ""
 
 
 # Process files into parts.
@@ -318,6 +358,7 @@ entry_autocomplete = AutocompleteEntry(frame_left, width=40, font=custom_font)
 entry_autocomplete.grid(row=0, column=0, sticky="ew")
 
 browse_button = tk.Button(frame_left, text="Browse", command=browse_directory)
+browse_button.bind("<Button-3>", lambda event: browse_target())
 browse_button.grid(row=0, column=1, padx=10, sticky="w")
 
 listbox_parts = tk.Listbox(frame_left, width=40, font=custom_font)
@@ -425,6 +466,7 @@ tree_menu.add_command(
 tree_menu.add_command(
     label="Explore Laterally", command=open_laterally, font=custom_font
 )
+tree_menu.add_command(label="Browse target", command=move_to_target, font=custom_font)
 tree.bind("<Button-3>", show_context_menu)
 
 # Go.
