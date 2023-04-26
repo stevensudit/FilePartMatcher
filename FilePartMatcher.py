@@ -19,11 +19,19 @@ from collections import namedtuple
 #
 # Selecting the part shows all files that contain it. Double-clicking on a
 # file opens it. Right-clicking on it opens a menu. The first two options
-# are self-explanatory. The last fills the parts list based on the selected
-# file, letting you search laterally. In lateral search mode, the part list
-# contains only the ones relevant to the file that you had selected and the
-# autocomplete textbox has a leading ">" to indicate that it's scoped to this
-# partial list. Clearing the textbox restores regular mode.
+# are self-explanatory. The next fills the parts list based on the selected
+# file, letting you search laterally.
+# 
+# In lateral search mode, the part list contains only the ones relevant to the
+# file that you had selected and the autocomplete textbox has a leading ">" to
+# indicate that it's scoped to this  partial list. Clearing the textbox
+# restores regular mode.
+#
+# The final option moves the selected file to a target directory. If no target
+# directory is selected, it prompts you to browse for one. This is no
+# replacement for opening the directory in Explorer, but it fits in with the
+# mission of helping the user find and harvest files. Note that you can also
+# right-click on the browse button to select the target directory.
 #
 # To run it conveniently under Windows, create a shortcut to this file. It
 # needs to launch python, passing the full path to this file as a parameter.
@@ -94,6 +102,8 @@ class AutocompleteEntry(tk.Entry):
             listbox_parts.selection_set(0)
             listbox_parts.see(0)
             listbox_parts.event_generate("<<ListboxSelect>>")
+        else:
+            show_files_with_selected_part()
 
     def set_text(self, text=""):
         self.var.set(text)
@@ -101,6 +111,8 @@ class AutocompleteEntry(tk.Entry):
 
 # Updates tree with files that contain selected part.
 def show_files_with_selected_part(event=None):
+    if tree.get_children():
+        tree.delete(*tree.get_children())
     if not listbox_parts.curselection():
         return
 
@@ -109,8 +121,6 @@ def show_files_with_selected_part(event=None):
     set_headings()
 
     selected_part = listbox_parts.get(listbox_parts.curselection())
-    if tree.get_children():
-        tree.delete(*tree.get_children())
     for file in file_dict[selected_part]:
         tree.insert(
             "",
@@ -265,7 +275,7 @@ def find_files(directory):
 # Pop up a directory dialog and then find all files recursively.
 def browse_directory():
     global directory
-    new_directory = os.path.normpath(filedialog.askdirectory())
+    new_directory = os.path.normpath(filedialog.askdirectory(title="Select directory to analyze"))
     if not new_directory or new_directory == ".":
         return
 
@@ -280,7 +290,7 @@ def browse_directory():
 # Choose target directory.
 def browse_target():
     global destination_directory
-    destination_directory = os.path.normpath(filedialog.askdirectory())
+    destination_directory = os.path.normpath(filedialog.askdirectory(title="Select directory to move files to"))
     if not destination_directory or destination_directory == ".":
         destination_directory = ""
 
@@ -465,7 +475,7 @@ vsb.grid(row=0, column=2, sticky="ns")
 frame_right.rowconfigure(0, weight=1)
 frame_right.columnconfigure(1, weight=1)
 
-# Bind double-click to tree rows.
+# Bind file cascade to parts and double-click to tree rows.
 listbox_parts.bind("<<ListboxSelect>>", show_files_with_selected_part)
 tree.bind(
     "<Double-Button-1>",
