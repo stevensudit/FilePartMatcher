@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import keyboard
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
@@ -172,7 +173,7 @@ def move_to_target(event=None):
         return
     if messagebox.askyesno("Confirm", f"Move {path} to {new_path}?"):
         os.rename(path, new_path)
-        tree.delete(items[0])    
+        tree.delete(items[0])
         parts = get_parts(path)
         for part in parts:
             file_dict[part].remove(path)
@@ -247,6 +248,10 @@ def update_title(increment=0, msg=""):
 def find_files(directory):
     file_list = []
     for entry in os.scandir(directory):
+        if keyboard.is_pressed("esc"):
+            file_list.clear()
+            return file_list
+
         if entry.is_symlink():
             continue
         if entry.is_file():
