@@ -312,19 +312,19 @@ root.bind("<F1>", lambda event: show_help())
 frame_left = tk.Frame(root)
 frame_left.grid(row=1, column=0, sticky="nsew")
 frame_left.columnconfigure(0, weight=1)
-frame_left.rowconfigure(0, weight=0)
+frame_left.rowconfigure(1, weight=1)
 
-entry_autocomplete = AutocompleteEntry(root, width=40, font=custom_font)
+entry_autocomplete = AutocompleteEntry(frame_left, width=40, font=custom_font)
 entry_autocomplete.grid(row=0, column=0, sticky="ew")
 
 browse_button = tk.Button(frame_left, text="Browse", command=browse_directory)
-browse_button.pack(side=tk.TOP, padx=10)
+browse_button.grid(row=0, column=1, padx=10, sticky="w")
 
 listbox_parts = tk.Listbox(frame_left, width=40, font=custom_font)
-listbox_parts.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
+listbox_parts.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
 
 scrollbar_parts = tk.Scrollbar(frame_left, command=listbox_parts.yview)
-scrollbar_parts.pack(side=tk.LEFT, fill=tk.Y)
+scrollbar_parts.grid(row=1, column=2, sticky="ns")
 listbox_parts.config(yscrollcommand=scrollbar_parts.set)
 
 # Create the right frame, which holds the tree control with file info.
