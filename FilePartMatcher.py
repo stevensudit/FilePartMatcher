@@ -285,16 +285,9 @@ def browse_target():
         destination_directory = ""
 
 
-# Process files into parts.
-def process_files():
-    global directory
-    global part_list
+# Extract parts from files.
+def extract_parts(files):
     global file_dict
-
-    start_time = time.time()
-    file_dict.clear()
-    update_title()
-    files = find_files(directory)
     for file_path, file_size in files:
         rel_path = os.path.relpath(file_path, directory)
         file_info = FileInfo(
@@ -305,19 +298,36 @@ def process_files():
             file_size,
         )
         update_title(-1, "files to extract parts from")
+        if keyboard.is_pressed("esc"):
+            file_dict.clear()
+            return
         parts = get_parts(rel_path)
         for part in parts:
             if part not in file_dict:
                 file_dict[part] = set()
             file_dict[part].add(file_info)
 
+
+# Sort file list by key.
+def sort_file_list(file_list):
+    file_list.sort(key=lambda x: x.key)
+    update_title(-1, " parts to sort")
+    return file_list
+
+
+# Process files into parts.
+def process_files():
+    global directory
+    global part_list
+    global file_dict
+
+    start_time = time.time()
+    file_dict.clear()
+    update_title()
+    files = find_files(directory)
+    extract_parts(files)
     update_title(0, ", sorting...")
     update_title(len(file_dict), " parts to sort")
-
-    def sort_file_list(file_list):
-        file_list.sort(key=lambda x: x.key)
-        update_title(-1, " parts to sort")
-        return file_list
 
     # Sort file lists for each part.
     update_title(len(file_dict), " parts to sort")
