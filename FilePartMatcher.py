@@ -42,12 +42,14 @@ title_counter = 0
 # Named tuple to hold file info for each row in the tree.
 FileInfo = namedtuple("FileInfo", ["key", "path", "name", "extension", "size"])
 
+
 # Shows help messagebox.
 def show_help():
     messagebox.showinfo(
         "Help",
         "Enter start of part to autocomplete. Prefix with space for wildcard search. Double-click on file for launch. Right-click for menu.",
     )
+
 
 # Control for auto-complete.
 class AutocompleteEntry(tk.Entry):
