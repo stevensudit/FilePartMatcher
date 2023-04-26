@@ -5,6 +5,7 @@ from tkinter import ttk
 from tkinter import filedialog
 from tkinter import messagebox
 
+
 # This is a simple GUI that allows you to browse a directory and then search
 # for files by part of the name. Parts are delimited by non-alphanumeric
 # characters and lowercased. To deal with the proliferation of parts differing
@@ -34,6 +35,8 @@ file_dict = {}
 # Holds currently-displayed parts list.
 part_list = []
 
+file_counter = 0
+
 
 # Shows help messagebox.
 def show_help():
@@ -58,14 +61,8 @@ class FileInfo:
     def __eq__(self, other):
         return (self.key) == (other.key)
 
-
-# Gets size of specified file, safely.
-def get_file_size(filepath):
-    try:
-        size = os.path.getsize(filepath)
-        return size
-    except:
-        return 0
+    def __lt__(self, other):
+        return (self.key) < (other.key)
 
 
 # Control for auto-complete.
@@ -208,44 +205,82 @@ def show_part_list(start_exploring=False):
     entry_autocomplete.focus()
 
 
+def update_title(increment=0, msg=""):
+    global file_counter
+    if not increment:
+        file_counter = 0
+    else:
+        file_counter += increment
+
+    if file_counter == 0:
+        root.title(f"File Part Matcher: {directory} {msg}")
+        return
+
+    if file_counter % 100 == 0:
+        root.title(f"File Part Matcher: {directory}, {file_counter} {msg}")
+
+
+# Find files and sizes recursively.
+def find_files(directory):
+    file_list = []
+    directory = os.path.normpath(directory)
+    for entry in os.scandir(directory):
+        if entry.is_symlink():
+            continue
+        if entry.is_file():
+            update_title(1, "files found")
+            file_list.append((entry.path, entry.stat().st_size))
+        elif entry.is_dir():
+            file_list.extend(find_files(entry.path))
+    return file_list
+
+
 # Pop up a directory dialog and then find all files recursively.
 def browse_directory():
     global directory
     global part_list
     directory = filedialog.askdirectory()
-    root.title(f"File Part Matcher: {directory}")
+    update_title()
     if not directory:
         return
-    file_dict.clear()
-    for current_root, dirs, files in os.walk(directory):
-        for file in files:
-            file_path = os.path.normpath(
-                os.path.relpath(os.path.join(current_root, file), directory)
-            )
-            file_info = FileInfo(
-                file_path.lower(),
-                file_path,
-                os.path.split(file_path)[-1],
-                os.path.splitext(file_path)[1][1:].upper(),
-                get_file_size(os.path.join(directory, file_path)),
-            )
-            parts = get_parts(file_path)
-            for part in parts:
-                if part not in file_dict:
-                    file_dict[part] = set()
-                file_dict[part].add(file_info)
 
+    root.config(cursor="wait")
+    root.update()
+
+    file_dict.clear()
+    update_title()
+    files = find_files(directory)
+    for file_path, file_size in files:
+        rel_path = os.path.relpath(file_path, directory)
+        file_info = FileInfo(
+            rel_path.lower(),
+            rel_path,
+            os.path.split(rel_path)[-1],
+            os.path.splitext(rel_path)[1][1:].upper(),
+            file_size,
+        )
+        update_title(-1, "files left to process")
+        parts = get_parts(rel_path)
+        for part in parts:
+            if part not in file_dict:
+                file_dict[part] = set()
+            file_dict[part].add(file_info)
+
+    update_title(0, ", sorting...")
     for key in file_dict:
-        file_dict[key] = sorted(file_dict[key], key=lambda x: x.key)
+        file_dict[key] = sorted(list(file_dict[key]), key=lambda x: x.key)
 
     part_list = [key for key in sorted(file_dict.keys())]
     show_part_list()
+    root.config(cursor="")
+    root.update()
+    update_title()
 
 
 # Create the window.
 root = tk.Tk()
 custom_font = ("TkDefaultFont", 16, "normal")
-root.title("File Part Matcher")
+update_title()
 root.state("zoomed")
 root.columnconfigure(0, weight=1)
 root.columnconfigure(1, weight=1)
