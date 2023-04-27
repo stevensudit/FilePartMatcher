@@ -148,8 +148,7 @@ def get_selected_file(event=None):
 # Opens selected file.
 def open_selected_file(event=None):
     selected_file = get_selected_file(event)
-    if selected_file:
-        os.startfile(selected_file)
+    perform(lambda: os.startfile(selected_file))
 
 
 # Opens selected file's directory.
@@ -157,7 +156,7 @@ def open_selected_directory(event=None):
     selected_file = get_selected_file(event)
     if selected_file:
         selected_directory = os.path.dirname(selected_file)
-        os.startfile(selected_directory)
+        perform(lambda: os.startfile(selected_directory))
 
 
 # Opens lateral search on the parts from the selected file.
@@ -195,7 +194,7 @@ def move_to_target(event=None):
         messagebox.showerror("Error", f"File already exists: {new_path}")
         return
     message = f"Move {fullpath} to {new_path}?"
-    perform_file_operation(
+    confirm_and_remove(
         fullpath, item, path, lambda: os.rename(fullpath, new_path), message
     )
 
@@ -206,17 +205,22 @@ def delete_file(event=None):
     if not fullpath:
         return
     message = f"Delete {fullpath} permanently?"
-    perform_file_operation(fullpath, item, path, lambda: os.remove(fullpath), message)
+    confirm_and_remove(fullpath, item, path, lambda: os.remove(fullpath), message)
 
 
-# Perform file operation lambda after prompting for permission.
-def perform_file_operation(fullpath, item=None, path=None, file_op=None, message=None):
-    if messagebox.askyesno("Confirm", message):
-        try:
-            file_op()
-        except OSError as e:
-            messagebox.showerror("Error", f"Error: {e.strerror}")
-            return
+# Perform a file operation lambda.
+def perform(file_op):
+    try:
+        file_op()
+        return True
+    except OSError as e:
+        messagebox.showerror("Error", f"Error: {e.strerror}")
+        return False
+
+
+# Perform file move/remove operation lambda after prompting for permission.
+def confirm_and_remove(fullpath, item=None, path=None, file_op=None, message=None):
+    if messagebox.askyesno("Confirm", message) and perform(file_op):
         remove_missing_file(item, path)
 
 
@@ -225,6 +229,8 @@ def remove_missing_file(item, path):
     tree.delete(item)
     parts = get_parts(path)
     for part in parts:
+        if not part in file_dict:
+            continue
         list = file_dict[part]
         list.remove(next((x for x in list if x.key == path), None))
         if len(list) == 0:
