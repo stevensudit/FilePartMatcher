@@ -232,7 +232,9 @@ def remove_missing_file(item, path):
         if not part in file_dict:
             continue
         list = file_dict[part]
-        list.remove(next((x for x in list if x.key == path), None))
+        matching_element = next((x for x in list if x.key == path), None)
+        if matching_element:
+            list.remove(matching_element)
         if len(list) == 0:
             del file_dict[part]
 
